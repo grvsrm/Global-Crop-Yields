@@ -1,0 +1,68 @@
+---
+title: "TidyTemplate"
+date: 2020-09-06
+output: html_output
+editor_options: 
+  chunk_output_type: console
+---
+
+# TidyTuesday
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, cache = TRUE,
+                      warning = FALSE, message = FALSE,
+                      dpi = 180, fig.width = 8, fig.height = 5)
+
+library(tidyverse)
+library(tidytuesdayR)
+library(scales)
+theme_set(theme_light())
+
+```
+
+# Load the weekly Data
+
+Download the weekly data and make available in the `tt` object.
+
+```{r Load}
+
+tt <- tt_load("2020-09-01")
+tt
+```
+
+```{r}
+
+key_crop_yield <- tt$key_crop_yields
+arable_land <- tt$arable_land_pin
+fertilizer <- tt$cereal_crop_yield_vs_fertilizer_application
+land_use <- tt$land_use_vs_yield_change_in_cereal_production
+tractor <- tt$cereal_yields_vs_tractor_inputs_in_agriculture
+
+```
+
+# Wrangle
+
+```{r Wrangle}
+
+
+
+```
+
+
+# Visualize
+
+```{r Visualize}
+
+```
+
+# Save Image
+
+```{r}
+
+# This will save your most recent plot
+ggsave(
+  filename = "My TidyTuesday Plot.png",
+  device = "png")
+
+```
