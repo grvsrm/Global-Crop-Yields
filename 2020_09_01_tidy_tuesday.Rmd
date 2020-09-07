@@ -21,7 +21,7 @@ theme_set(theme_light())
 
 ```
 
-# Load the weekly Data
+# Download the weekly Data
 
 Download the weekly data and make available in the `tt` object.
 
@@ -31,28 +31,84 @@ tt <- tt_load("2020-09-01")
 tt
 ```
 
+# Load the data
 ```{r}
 
-key_crop_yield <- tt$key_crop_yields
-arable_land <- tt$arable_land_pin
-fertilizer <- tt$cereal_crop_yield_vs_fertilizer_application
-land_use <- tt$land_use_vs_yield_change_in_cereal_production
-tractor <- tt$cereal_yields_vs_tractor_inputs_in_agriculture
+key_crop_yield_raw <- tt$key_crop_yields
+arable_land_raw <- tt$arable_land_pin
+fertilizer_raw <- tt$cereal_crop_yield_vs_fertilizer_application
+land_use_raw <- tt$land_use_vs_yield_change_in_cereal_production
+tractor_raw <- tt$cereal_yields_vs_tractor_inputs_in_agriculture
 
 ```
 
-# Wrangle
+# Clean the data
 
 ```{r Wrangle}
 
+key_crop_yield <- key_crop_yield_raw %>% 
+    janitor::clean_names() %>% 
+    rename_all(str_remove, "_tonnes.*")
+    
+arable_land <- arable_land_raw %>% 
+    janitor::clean_names() %>% 
+    rename(arable_land_needed = 4)
 
+fertilizer <- fertilizer_raw %>% 
+    rename(yield = 4,
+           fertilizer_use = 5)
 
 ```
 
 
-# Visualize
+# Wrangle & Visualization
 
-```{r Visualize}
+```{r}
+
+yields_tidy <- key_crop_yield %>% 
+    pivot_longer(wheat:bananas, names_to = "crops", values_to = "yield") %>% 
+    filter(!is.na(yield))
+
+# lets save it so that we can use it in our shiny dashboard
+yields_tidy %>% 
+    write_rds("yields_tidy.rds")
+
+yields_tidy %>% 
+    filter(code == "USA") %>% 
+    mutate(crops = fct_reorder(crops, -yield)) %>% 
+    ggplot(aes(year, yield)) +
+    geom_line(size =1) +
+    facet_wrap(~crops)
+
+# Another way of showing same graph as above
+yields_tidy %>% 
+    filter(code == "USA") %>% 
+    mutate(crops = fct_reorder(crops, -yield)) %>% 
+    ggplot(aes(year, yield, color = crops)) +
+    geom_line(size =1) +
+    labs(x = "Year",
+         y = "Yield (tonnes per hectare)",
+         title = "Crops yields over time in US",
+         subtitle = "Data from Our World in Data")
+
+```
+
+# Lets checkit for India
+``` {r}
+yields_tidy %>% 
+    filter(code == "IND") %>% 
+    mutate(crops = fct_reorder(crops, -yield)) %>% 
+    ggplot(aes(year, yield, color = crops)) +
+    geom_line(size =1)
+
+```
+
+```{r}
+
+arable_land %>% 
+    filter(code == "AFG") %>% 
+    ggplot(aes(year, arable_land_needed)) +
+    geom_line(size = 1)
 
 ```
 
