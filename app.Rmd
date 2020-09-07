@@ -18,9 +18,7 @@ theme_set(theme_light())
 ```
 
 ```{r}
-yields_tidy <- read_rds("yields_tidy.rds") %>% 
-  mutate(crops = str_replace_all(crops, "_", ""),
-         crops = str_to_title(crops))
+yields_tidy <- read_rds("yields_tidy.rds")
 
 top_crops <- yields_tidy %>% 
   count(crops, sort = T) %>% 

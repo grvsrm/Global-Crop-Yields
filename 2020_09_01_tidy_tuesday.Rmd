@@ -1,5 +1,5 @@
 ---
-title: "TidyTemplate"
+title: "TidyTemplate for Wrangling"
 date: 2020-09-06
 output: html_output
 editor_options: 
@@ -17,6 +17,7 @@ knitr::opts_chunk$set(echo = TRUE, cache = TRUE,
 library(tidyverse)
 library(tidytuesdayR)
 library(scales)
+library(countrycode)
 theme_set(theme_light())
 
 ```
@@ -67,7 +68,9 @@ fertilizer <- fertilizer_raw %>%
 
 yields_tidy <- key_crop_yield %>% 
     pivot_longer(wheat:bananas, names_to = "crops", values_to = "yield") %>% 
-    filter(!is.na(yield))
+    filter(!is.na(yield)) %>% 
+  mutate(crops = str_replace_all(crops, "_", ""),
+         crops = str_to_title(crops))
 
 # lets save it so that we can use it in our shiny dashboard
 yields_tidy %>% 
@@ -109,6 +112,64 @@ arable_land %>%
     filter(code == "AFG") %>% 
     ggplot(aes(year, arable_land_needed)) +
     geom_line(size = 1)
+
+```
+
+```{r}
+yields_tidy %>% 
+  add_count(entity, crops)
+  filter(n == max(n)) %>% 
+  filter(entity %in% sample(unique(entity), 25)) %>% 
+  ggplot(aes(year, yield, group = entity)) +
+  geom_line(alpha = 0.5) +
+  facet_wrap(~entity)
+
+  
+
+crop_yield_50_years <- yields_tidy %>% 
+  arrange(entity, year) %>% 
+  filter(year >= 1968) %>% 
+  group_by(entity, code, crops) %>% 
+  summarise(year_start = min(year),
+            year_end = max(year),
+            yield_start = first(yield),
+            yield_end = last(yield)) %>% 
+  filter(year_start == 1968) %>% 
+  mutate(yield_ratio = yield_end/yield_start)
+
+
+crop_yield_50_years %>% 
+#  filter(!is.na(code)) %>% 
+  ggplot(aes(yield_start, yield_end)) +
+  geom_point() +
+  geom_abline(size = 2, color = "red", alpha = 0.3) +
+  facet_wrap(~crops, scales = "free")
+
+crop_yield_50_years %>% 
+  filter(is.na(code)) %>%
+  filter(entity %in% c("Africa", "Americas", "Asia", "Oceania", "Northern America", "South America", "Europe")) %>% 
+  ggplot(aes(yield_start, yield_end)) +
+  geom_point() +
+  geom_text(aes(label = entity), check_overlap = T, hjust = 1, vjust = 1) +
+  geom_abline(size = 2, color = "red", alpha = 0.3) +
+  facet_wrap(~crops, scales = "free")
+```
+
+```{r}
+crop_yield_50_years %>% 
+  mutate(continent = countrycode(code, "iso3c", "continent")) %>% 
+  filter(!is.na(code),
+         !is.na(continent),
+         crops == "Wheat") %>%
+  ggplot(aes(yield_start, yield_ratio, color = continent)) +
+  geom_point() +
+  geom_text(aes(label = entity), check_overlap = T, hjust = 1, vjust = 1, show.legend = F) +
+  geom_hline(yintercept = 1, lty =2)  +
+  geom_vline(xintercept = 1, lty =2)  +
+  scale_x_log10(breaks = c(0.25, 0.5, 1, 2, 4),
+                labels = number_format()) +
+  scale_y_log10(breaks = c(0.25, 0.5, 1, 2, 4),
+                labels = c("1/4X", "1/2X", "SAME", "2X", "4X"))
 
 ```
 

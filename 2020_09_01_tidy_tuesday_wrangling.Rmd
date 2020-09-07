@@ -1,0 +1,183 @@
+---
+title: "TidyTemplate"
+date: 2020-09-06
+output: html_output
+editor_options: 
+  chunk_output_type: console
+---
+
+# TidyTuesday
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, cache = TRUE,
+                      warning = FALSE, message = FALSE,
+                      dpi = 180, fig.width = 8, fig.height = 5)
+
+library(tidyverse)
+library(tidytuesdayR)
+library(scales)
+library(countrycode)
+theme_set(theme_light())
+
+```
+
+# Download the weekly Data
+
+Download the weekly data and make available in the `tt` object.
+
+```{r Load}
+
+tt <- tt_load("2020-09-01")
+tt
+```
+
+# Load the data
+```{r}
+
+key_crop_yield_raw <- tt$key_crop_yields
+arable_land_raw <- tt$arable_land_pin
+fertilizer_raw <- tt$cereal_crop_yield_vs_fertilizer_application
+land_use_raw <- tt$land_use_vs_yield_change_in_cereal_production
+tractor_raw <- tt$cereal_yields_vs_tractor_inputs_in_agriculture
+
+```
+
+# Clean the data
+
+```{r Wrangle}
+
+key_crop_yield <- key_crop_yield_raw %>% 
+    janitor::clean_names() %>% 
+    rename_all(str_remove, "_tonnes.*")
+    
+arable_land <- arable_land_raw %>% 
+    janitor::clean_names() %>% 
+    rename(arable_land_needed = 4)
+
+fertilizer <- fertilizer_raw %>% 
+    rename(yield = 4,
+           fertilizer_use = 5)
+
+```
+
+
+# Wrangle & Visualization
+
+```{r}
+
+yields_tidy <- key_crop_yield %>% 
+    pivot_longer(wheat:bananas, names_to = "crops", values_to = "yield") %>% 
+    filter(!is.na(yield))
+
+# lets save it so that we can use it in our shiny dashboard
+yields_tidy %>% 
+    write_rds("yields_tidy.rds")
+
+yields_tidy %>% 
+    filter(code == "USA") %>% 
+    mutate(crops = fct_reorder(crops, -yield)) %>% 
+    ggplot(aes(year, yield)) +
+    geom_line(size =1) +
+    facet_wrap(~crops)
+
+# Another way of showing same graph as above
+yields_tidy %>% 
+    filter(code == "USA") %>% 
+    mutate(crops = fct_reorder(crops, -yield)) %>% 
+    ggplot(aes(year, yield, color = crops)) +
+    geom_line(size =1) +
+    labs(x = "Year",
+         y = "Yield (tonnes per hectare)",
+         title = "Crops yields over time in US",
+         subtitle = "Data from Our World in Data")
+
+```
+
+# Lets checkit for India
+``` {r}
+yields_tidy %>% 
+    filter(code == "IND") %>% 
+    mutate(crops = fct_reorder(crops, -yield)) %>% 
+    ggplot(aes(year, yield, color = crops)) +
+    geom_line(size =1)
+
+```
+
+```{r}
+
+arable_land %>% 
+    filter(code == "AFG") %>% 
+    ggplot(aes(year, arable_land_needed)) +
+    geom_line(size = 1)
+
+```
+
+```{r}
+yields_tidy %>% 
+  add_count(entity, crops)
+  filter(n == max(n)) %>% 
+  filter(entity %in% sample(unique(entity), 25)) %>% 
+  ggplot(aes(year, yield, group = entity)) +
+  geom_line(alpha = 0.5) +
+  facet_wrap(~entity)
+
+  
+
+crop_yield_50_years <- yields_tidy %>% 
+  arrange(entity, year) %>% 
+  filter(year >= 1968) %>% 
+  group_by(entity, code, crops) %>% 
+  summarise(year_start = min(year),
+            year_end = max(year),
+            yield_start = first(yield),
+            yield_end = last(yield)) %>% 
+  filter(year_start == 1968) %>% 
+  mutate(yield_ratio = yield_end/yield_start)
+
+
+crop_yield_50_years %>% 
+#  filter(!is.na(code)) %>% 
+  ggplot(aes(yield_start, yield_end)) +
+  geom_point() +
+  geom_abline(size = 2, color = "red", alpha = 0.3) +
+  facet_wrap(~crops, scales = "free")
+
+crop_yield_50_years %>% 
+  filter(is.na(code)) %>%
+  filter(entity %in% c("Africa", "Americas", "Asia", "Oceania", "Northern America", "South America", "Europe")) %>% 
+  ggplot(aes(yield_start, yield_end)) +
+  geom_point() +
+  geom_text(aes(label = entity), check_overlap = T, hjust = 1, vjust = 1) +
+  geom_abline(size = 2, color = "red", alpha = 0.3) +
+  facet_wrap(~crops, scales = "free")
+```
+
+```{r}
+crop_yield_50_years %>% 
+  mutate(continent = countrycode(code, "iso3c", "continent")) %>% 
+  filter(!is.na(code),
+         !is.na(continent),
+         crops == "Wheat") %>%
+  ggplot(aes(yield_start, yield_ratio, color = continent)) +
+  geom_point() +
+  geom_text(aes(label = entity), check_overlap = T, hjust = 1, vjust = 1, show.legend = F) +
+  geom_hline(yintercept = 1, lty =2)  +
+  geom_vline(xintercept = 1, lty =2)  +
+  scale_x_log10(breaks = c(0.25, 0.5, 1, 2, 4),
+                labels = number_format()) +
+  scale_y_log10(breaks = c(0.25, 0.5, 1, 2, 4),
+                labels = c("1/4X", "1/2X", "SAME", "2X", "4X"))
+
+```
+
+# Save Image
+
+```{r}
+
+# This will save your most recent plot
+ggsave(
+  filename = "My TidyTuesday Plot.png",
+  device = "png")
+
+```
