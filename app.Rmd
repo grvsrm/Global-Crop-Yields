@@ -11,106 +11,74 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 ```
 
 ```{r}
-library(dplyr)
-library(ggplot2)
-library(forcats)
+library(tidyverse)
 library(shiny)
-library(stringr)
 library(plotly)
 theme_set(theme_light())
 ```
 
 ```{r}
-yields_tidy <- readRDS("yields_tidy.rds")
+yields_tidy <- read_rds("yields_tidy.rds") %>% 
+  mutate(crops = str_replace_all(crops, "_", ""),
+         crops = str_to_title(crops))
 
-top_crops <- yields_tidy %>%
-  count(crops, sort = TRUE) %>%
-  head(9) %>%
+top_crops <- yields_tidy %>% 
+  count(crops, sort = T) %>% 
+  head(9) %>% 
   pull(crops)
 
 ```
 
 ```{r}
-# plot_yields <-  function(tbl) {
-#   tbl %>%
-#     mutate(crops = fct_reorder(crops, -yield)) %>%
-#     ggplot(aes(year, yield, color = crops)) +
-#     geom_line(size = 1) +
-#     facet_wrap(~entity) +
-#     labs(
-#       x = "Year",
-#       y = "Yield (tonnes per hectare)",
-#       title = "Crops yields over time in US",
-#       subtitle = "Data from Our World in Data"
-#     )
-# }
-
-# yields_tidy %>% 
-#   filter(entity == "United States") %>% 
-#   plot_yields()
-
-
-plot_yields <- function(tbl, facet_scales = "fixed") {
+plot_yields <-  function(tbl, facet_scales = "fixed") {
   g <- tbl %>%
-    mutate(crops = fct_reorder(crops, -yield)) %>%
-    mutate(entity = fct_reorder(entity, -yield)) %>%
+    mutate(crops = fct_reorder(crops, -yield),
+           entity = fct_reorder(entity, -yield)) %>%
     ggplot(aes(year, yield, color = entity)) +
-    geom_line() +
+    geom_line(size = 1) +
+    facet_wrap(~crops, scales = facet_scales) +
     expand_limits(y = 0) +
-    facet_wrap(~ crops, scales = facet_scales) +
-    labs(x = "Year",
-         y = "Yield (tonnes per hectare)",
-         title = "Crop yields over time",
-         color = "Country")
-  
+    labs(
+      x = "Year",
+      y = "Yield (tonnes per hectare)",
+      title = "Crops yields over time",
+      subtitle = "Data from Our World in Data",
+      color = "Country"
+    )
   ggplotly(g)
 }
+
 # yields_tidy %>%
-#   filter(code %in% c("USA", "IND")) %>%
+#   filter(entity == "United States") %>%
 #   plot_yields()
+
 ```
 
 ## Inputs and Outputs
 
 ```{r ,echo=FALSE}
-# inputPanel(
-#   selectInput("entity", label = "Country",
-#               choices = unique(yields_tidy$entity), 
-#               selected = "India",
-#               multiple = TRUE)
-# )
-# 
-# 
-# renderPlot({
-#   yields_tidy %>% 
-#     filter(entity %in% input$entity) %>% 
-#     plot_yields()
-# 
-# })
-
 inputPanel(
-  selectInput("entity",
-              label = "Country/Continent/Region:",
+  selectInput("entity", label = "Country",
               choices = unique(yields_tidy$entity),
-              selected = c("United States", "India"),
-              selectize = TRUE,
+              selected = "India",
               multiple = TRUE),
-  selectInput("crops",
-              label = "Crops:",
-              choices = unique(yields_tidy$crop),
+  
+  selectInput("crops", label = "Crop",
+              choices = unique(yields_tidy$crops),
               selected = top_crops,
-              selectize = TRUE,
               multiple = TRUE),
   radioButtons("facet_scales",
                label = "",
-               choices = c("Free y-axis" = "free_y",
-                           "Shared y-axis" = "fixed"))
+               choices = c("Free Y Axis" = "free_y",
+                           "Shared Y Axis" = "fixed"))
 )
+
 renderPlotly({
   yields_tidy %>%
     filter(entity %in% input$entity,
            crops %in% input$crops) %>%
     plot_yields(facet_scales = input$facet_scales)
+
 })
 
 ```
